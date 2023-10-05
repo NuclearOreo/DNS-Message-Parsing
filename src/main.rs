@@ -4,7 +4,8 @@ use dns_message_parser::{question, Dns, Flags};
 use std::num::ParseIntError;
 
 fn main() {
-    let ss = ["a01d81800001000100000000076578616d706c6503636f6d0000010001c00c0001000100001bbc00045db8d822",
+    let ss = [
+            "a01d81800001000100000000076578616d706c6503636f6d0000010001c00c0001000100001bbc00045db8d822",
             "9b4c84000001000200000000037777770a636c6f7564666c61726503636f6d0000010001c00c000100010000012c000468107c60c00c000100010000012c000468107b60", 
             "7ebd84000001000200000000037777770a636c6f7564666c61726503636f6d00001c0001c00c001c00010000012c001026064700000000000000000068107c60c00c001c00010000012c001026064700000000000000000068107b60",
             "762081800001000200000000037777770773706f7469667903636f6d0000010001c00c0005000100000102001f12656467652d7765622d73706c69742d67656f096475616c2d67736c62c010c02d000100010000006c000423bae019",
@@ -94,24 +95,70 @@ fn parse_body(
         questions.push((name, q_type, q_class));
     }
 
-    println!("{:?}\n", questions);
+    parse_answers(offset, number_of_answers_rr, bytes);
+}
 
-    for _ in 0..number_of_answers_rr {}
-    for _ in 0..number_of_authority_rr {}
-    for _ in 0..number_of_additional_rr {}
+fn parse_answers(mut offset: usize, count: u16, bytes: &[u8]) {
+    for _ in 0..count {
+        let (_, name) = _get_name(offset, bytes);
+        offset += 2;
+
+        let r_type = (bytes[offset] as u16) << 8 | (bytes[offset + 1] as u16);
+        offset += 2;
+
+        let r_class = (bytes[offset] as u16) << 8 | (bytes[offset + 1] as u16);
+        offset += 2;
+
+        let ttl = (bytes[offset] as u32) << 24
+            | (bytes[offset + 1] as u32) << 16
+            | (bytes[offset + 2] as u32) << 8
+            | bytes[offset + 3] as u32;
+        offset += 4;
+
+        let r_size = (bytes[offset] as u16) << 8 | (bytes[offset + 1] as u16);
+        offset += 2;
+
+        let r_data = match r_type {
+            1 => {
+                let ip: Vec<String> = (0..4).map(|i| format!("{}", bytes[offset + i])).collect();
+                ip.join(".")
+            }
+            5 => {
+                let (_, cname) = _get_name(offset, bytes);
+                cname
+            }
+            // 28 => {}
+            _ => "".to_string(),
+        };
+        offset += r_size as usize;
+
+        println!(
+            "{}, {:?}, {:?}, {:?}, {:?}, {}",
+            name, r_type, r_class, ttl, r_size, r_data
+        );
+    }
+
+    println!("\n\n");
 }
 
 fn _get_name(mut offset: usize, bytes: &[u8]) -> (usize, String) {
     let mut strings = vec![];
     while bytes[offset] != 0 {
-        let mut token = vec![];
-        for i in 0..bytes[offset] {
-            let byte = bytes[offset + i as usize + 1];
-            token.push(byte);
+        if bytes[offset] == 192 {
+            let (_, string) = _get_name(bytes[offset + 1] as usize - 12, bytes);
+            strings.push(string);
+            offset += 2;
+            break;
+        } else {
+            let mut token = vec![];
+            for i in 0..bytes[offset] {
+                let byte = bytes[offset + i as usize + 1];
+                token.push(byte);
+            }
+            let string = String::from_utf8(token).unwrap();
+            strings.push(string);
+            offset += bytes[offset] as usize + 1;
         }
-        let string = String::from_utf8(token).unwrap();
-        strings.push(string);
-        offset += bytes[offset] as usize + 1;
     }
 
     let name = strings.join(".");
