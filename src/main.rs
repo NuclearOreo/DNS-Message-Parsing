@@ -13,8 +13,8 @@ fn main() {
     for &s in ss.iter() {
         let msg = decode_hex(s).unwrap();
         let dns_message = parse_message(&msg);
-
-        println!("{:?}\n", dns_message);
+        print_dns_message(&dns_message);
+        println!("\n");
     }
 }
 
@@ -227,13 +227,14 @@ fn _get_name(mut offset: usize, bytes: &[u8]) -> (usize, String) {
                 let byte = bytes[offset + i as usize + 1];
                 token.push(byte);
             }
+            token.push('.' as u8);
             let string = String::from_utf8(token).unwrap();
             strings.push(string);
             offset += bytes[offset] as usize + 1;
         }
     }
 
-    let name = strings.join(".");
+    let name = strings.join("");
     (offset, name)
 }
 
@@ -308,4 +309,190 @@ fn parse_header(bytes: &[u8]) -> (DnsMessage, (u16, u16, u16, u16)) {
             number_of_additional_rr,
         ),
     )
+}
+
+fn print_dns_message(message: &DnsMessage) {
+    let mut buffer = String::new();
+
+    // Start of line one
+    buffer += ";; ->>HEADER<<- opcode: ";
+
+    match message.opcode {
+        0 => buffer += "QUERY,",
+        1 => buffer += "Inverse Query,",
+        2 => buffer += "STATUS,",
+        4 => buffer += "NOTIFY,",
+        5 => buffer += "UPDATE,",
+        6 => buffer += "DSO,",
+        _ => buffer += "UNKNOWN,",
+    }
+
+    buffer += " status: ";
+
+    match message.r_code {
+        0 => buffer += "NOERROR,",
+        1 => buffer += "FORMERR,",
+        2 => buffer += "SERVFAIL,",
+        3 => buffer += "NXDOMAIN,",
+        4 => buffer += "NOTIMPL,",
+        5 => buffer += "REFUSED,",
+        6 => buffer += "YXDOMAIN,",
+        7 => buffer += "YXRRSET,",
+        8 => buffer += "NXRRSET,",
+        9 => buffer += "NOTAUTH,",
+        10 => buffer += "NOTZONE,",
+        _ => buffer += "UNKNOWN,",
+    }
+
+    buffer += &format!(" id: {}\n", message.id);
+
+    // Start of line 2
+    buffer += ";; flags:";
+
+    if message.qr == 1 {
+        buffer += " qr";
+    }
+    if message.aa == 1 {
+        buffer += " aa";
+    }
+    if message.tc == 1 {
+        buffer += " tc";
+    }
+    if message.rd == 1 {
+        buffer += " rd";
+    }
+    if message.ra == 1 {
+        buffer += " ra";
+    }
+    buffer += "; ";
+
+    buffer += &format!("QUERY: {}, ", message.questions.len());
+    buffer += &format!("ANSWER: {}, ", message.answers.len());
+    buffer += &format!("AUTHORITY: {}, ", message.authority.len());
+    buffer += &format!("ADDITIONAL: {}", message.additional.len());
+
+    // The rest of the lines
+    if message.questions.len() > 0 {
+        buffer += "\n\n;; QUESTION SECTION:";
+
+        for i in 0..message.questions.len() {
+            buffer += "\n";
+            buffer += &format!(";{}", message.questions[i].name);
+            buffer += "		";
+            match message.questions[i].q_class {
+                1 => buffer += "IN",
+                3 => buffer += "CS",
+                4 => buffer += "HS",
+                5 => buffer += "ANY",
+                0 => buffer += "NONE",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            match message.questions[i].q_type {
+                1 => buffer += "A",
+                28 => buffer += "AAAA",
+                5 => buffer += "CNAME",
+                _ => buffer += "UNKNOWN",
+            }
+        }
+    }
+
+    if message.answers.len() > 0 {
+        buffer += "\n\n;; ANSWER SECTION:";
+
+        for i in 0..message.answers.len() {
+            buffer += "\n";
+            buffer += &format!("{}", message.answers[i].name);
+            buffer += "		";
+            buffer += &format!("{}", message.answers[i].ttl);
+            buffer += "	";
+
+            match message.answers[i].r_class {
+                1 => buffer += "IN",
+                3 => buffer += "CS",
+                4 => buffer += "HS",
+                5 => buffer += "ANY",
+                0 => buffer += "NONE",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            match message.answers[i].r_type {
+                1 => buffer += "A",
+                28 => buffer += "AAAA",
+                5 => buffer += "CNAME",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            buffer += &message.answers[i].r_data;
+        }
+    }
+
+    if message.authority.len() > 0 {
+        buffer += "\n\n;; AUTHORITY SECTION:";
+
+        for i in 0..message.authority.len() {
+            buffer += "\n";
+            buffer += &format!("{}", message.authority[i].name);
+            buffer += "		";
+            buffer += &format!("{}", message.authority[i].ttl);
+            buffer += "	";
+
+            match message.authority[i].r_class {
+                1 => buffer += "IN",
+                3 => buffer += "CS",
+                4 => buffer += "HS",
+                5 => buffer += "ANY",
+                0 => buffer += "NONE",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            match message.authority[i].r_type {
+                1 => buffer += "A",
+                28 => buffer += "AAAA",
+                5 => buffer += "CNAME",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            buffer += &message.authority[i].r_data;
+        }
+    }
+
+    if message.additional.len() > 0 {
+        buffer += "\n\n;; ADDITIONAL SECTION:";
+
+        for i in 0..message.additional.len() {
+            buffer += "\n";
+            buffer += &format!("{}", message.additional[i].name);
+            buffer += "		";
+            buffer += &format!("{}", message.additional[i].ttl);
+            buffer += "	";
+
+            match message.additional[i].r_class {
+                1 => buffer += "IN",
+                3 => buffer += "CS",
+                4 => buffer += "HS",
+                5 => buffer += "ANY",
+                0 => buffer += "NONE",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            match message.additional[i].r_type {
+                1 => buffer += "A",
+                28 => buffer += "AAAA",
+                5 => buffer += "CNAME",
+                _ => buffer += "UNKNOWN",
+            }
+            buffer += "	";
+
+            buffer += &message.additional[i].r_data;
+        }
+    }
+
+    println!("{}", buffer);
 }
