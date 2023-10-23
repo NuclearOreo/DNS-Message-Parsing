@@ -20,6 +20,9 @@ google.com.		127	IN	A	142.250.217.174
 ;; MSG SIZE  rcvd: 55
 ```
 
-Resources I found 
+## Resources I found useful:
 
-https://docstore.mik.ua/orelly/networking_2ndEd/dns/appa_02.htm
+- https://docstore.mik.ua/orelly/networking_2ndEd/dns/appa_02.htm
+- https://www.youtube.com/watch?v=n-Zs8a4f4F8
+- https://www.youtube.com/watch?v=jZ0nuzaehjY
+- https://www.youtube.com/watch?v=EDJR0DNSodg
